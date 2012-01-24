@@ -12,11 +12,8 @@ import GameModel
 import VtyMonad
 import Options
 
-defaultWordList :: FilePath
-defaultWordList = "wordlist1.txt"
-
-wordListIO :: IO [String]
-wordListIO = fmap lines (readFile defaultWordList)
+wordListIO :: Options -> IO [String]
+wordListIO o = fmap lines (readFile (wordlistFile o))
 
 data GameState = GameState
   { currentModel     :: GameModel
@@ -34,7 +31,7 @@ newGameState g = GameState
 main :: IO ()
 main = do
   (opts, startingMask)     <- parseOptions
-  ws                       <- wordListIO
+  ws                       <- wordListIO opts
   let mask0                = parseMask startingMask
       mask1
         | scrubOption opts = scrubMask mask0

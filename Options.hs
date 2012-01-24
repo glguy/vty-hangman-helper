@@ -5,19 +5,27 @@ import System.Console.GetOpt
 import System.Environment
 
 data Options = Options
-  { scrubOption :: Bool
+  { scrubOption  :: Bool
+  , wordlistFile :: FilePath
   }
 
 defaultOptions :: Options
 defaultOptions = Options
-  { scrubOption = False
+  { scrubOption  = False
+  , wordlistFile = "wordlist1.txt"
   }
 
 setScrub :: Bool -> Options -> Options
 setScrub x o = o { scrubOption = x }
 
+setWordlist :: FilePath -> Options -> Options
+setWordlist fp o = o { wordlistFile = fp }
+
 options :: [OptDescr (Options -> Options)]
-options = [Option ['s'] ["scrub"] (NoArg (setScrub True)) "Scrub word"]
+options =
+  [ Option ['s'] ["scrub"] (NoArg (setScrub True)) "Scrub word"
+  , Option ['f'] ["wordlist"] (ReqArg setWordlist "Filename") "Word list"
+  ]
 
 parseOptions :: IO (Options, String)
 parseOptions = do
