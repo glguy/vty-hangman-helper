@@ -1,5 +1,6 @@
 module VtyMonad where
 
+import Data.Char
 import Graphics.Vty
 import Control.Exception (bracket)
 
@@ -22,6 +23,14 @@ updateV x = V (\vty -> update vty x)
 
 next_eventV :: VIO Event
 next_eventV = V next_event
+
+next_key :: VIO Key
+next_key = do
+  ev <- next_eventV
+  case ev of
+    EvKey (KASCII a) [] -> return (KASCII (toUpper a))
+    EvKey k []          -> return k
+    _                   -> next_key
 
 runV :: VIO a -> IO a
 runV (V f) = bracket mkVty shutdown f
