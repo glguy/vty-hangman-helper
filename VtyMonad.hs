@@ -1,28 +1,19 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module VtyMonad where
 
 import Data.Char
 import Graphics.Vty
 import Control.Exception (bracket)
+import Control.Monad.Reader
 
-newtype VIO a = V (Vty -> IO a)
-
-instance Functor VIO where
-  fmap f (V m) = V (fmap f . m)
-
-instance Monad VIO where
-  return x   = V (\_ -> return x)
-  V m >>= f  = V (\vty -> m vty >>= \ x -> let V m' = f x in m' vty)
-  fail err   = V (\_   -> fail err)
-  V m >> V n = V (\vty -> m vty >> n vty)
-
-lift :: IO a -> VIO a
-lift m = V (\_ -> m)
+newtype VIO a = V (ReaderT Vty IO a)
+  deriving (Monad, Functor)
 
 updateV :: Picture -> VIO ()
-updateV x = V (\vty -> update vty x)
+updateV x = V (ask >>= \vty -> lift (update vty x))
 
 next_eventV :: VIO Event
-next_eventV = V next_event
+next_eventV = V (ask >>= \vty -> lift (next_event vty))
 
 next_key :: VIO Key
 next_key = do
@@ -33,4 +24,4 @@ next_key = do
     _                   -> next_key
 
 runV :: VIO a -> IO a
-runV (V f) = bracket mkVty shutdown f
+runV (V f) = bracket mkVty shutdown (runReaderT f)
