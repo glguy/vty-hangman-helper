@@ -4,16 +4,20 @@ import Data.List (foldl')
 import System.Console.GetOpt
 import System.Environment
 
+import Paths_vty_hangman_helper
+
 data Options = Options
   { scrubOption  :: Bool
   , wordlistFile :: FilePath
   }
 
-defaultOptions :: Options
-defaultOptions = Options
-  { scrubOption  = False
-  , wordlistFile = "wordlist1.txt"
-  }
+defaultOptions :: IO Options
+defaultOptions = do
+  file <- getDataFileName "wordlist1.txt"
+  return Options
+           { scrubOption  = False
+           , wordlistFile = file
+           }
 
 setScrub :: Bool -> Options -> Options
 setScrub x o = o { scrubOption = x }
@@ -30,8 +34,9 @@ options =
 parseOptions :: IO (Options, String)
 parseOptions = do
   args <- getArgs
+  opts <- defaultOptions
   case getOpt Permute options args of
-    (optFuns, [w], []  ) -> return (foldl' (\x f -> f x) defaultOptions optFuns, w)
+    (optFuns, [w], []  ) -> return (foldl' (\x f -> f x) opts optFuns, w)
     (_,       [] , []  ) -> fail "Initial word not specified"
     (_,       _  , []  ) -> fail "Too many arguments"
     (_,       _  , errs) -> fail (unlines errs)
