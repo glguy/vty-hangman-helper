@@ -1,4 +1,7 @@
-module GameModel where
+module GameModel
+  (GameModel(..), newGameModel,
+   alphabet, currentChoices, applyGuess)
+  where
 
 import Data.List
 import Data.Ord
@@ -31,30 +34,23 @@ currentChoices g = rankLetters (alphabet \\ lettersTried g) (currentWords g)
 newGameModel :: Mask -> [String] -> GameModel
 newGameModel mask ws = GameModel { lettersTried = lettersTried'
                                  , currentMask  = mask
-                                 , currentWords = initialWords
+                                 , currentWords = initialWords ws
                                  }
   where
-  n = maskLength mask
+  initialWords  = filter checkMask . filter checkVowels
 
-  v = trailingNonvowels mask
+  vowelCount    = trailingConsonants mask
+  checkVowels   = all (not . isVowel) . take vowelCount . reverse
 
   lettersTried' = maskLetters mask
+  checkMask     = match mask lettersTried'
 
-  initialWords = filter (match mask lettersTried')
-               . filter (all (not . isVowel) . take v . reverse)
-               . filter (\w -> length w == n)
-               $ ws
 
-applyGuess :: Char -> Mask -> GameModel -> Either String GameModel
-applyGuess c newmask g
-  | not (currentMask g `isSubmaskOf` newmask) = Left "Incompatible mask"
-  | not (isOneStep c (currentMask g) newmask) = Left "Wrong character in new mask"
-  | c `elem` lettersTried g                   = Left "Duplicate guess"
-  | otherwise = Right GameModel
-                  { lettersTried = lettersTried'
-                  , currentMask  = newmask
-                  , currentWords = filter (match newmask lettersTried') (currentWords g)
-                  }
+applyGuess :: Char -> Mask -> GameModel -> GameModel
+applyGuess c newmask g = GameModel
+  { lettersTried = lettersTried'
+  , currentMask  = newmask
+  , currentWords = filter (match newmask lettersTried') (currentWords g)
+  }
   where
   lettersTried' = c : lettersTried g
-

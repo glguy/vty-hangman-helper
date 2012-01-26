@@ -10,8 +10,8 @@ import Mask
 
 -- * Render functions
 
-draw :: GameState -> Maybe Char -> [Maybe Char] -> Picture
-draw s c xs =
+draw :: Maybe Char -> [Maybe Char] -> GameState -> Picture
+draw c xs s =
   Picture { pic_cursor     = cursor
           , pic_background = Background ' ' current_attr
           , pic_image      = image

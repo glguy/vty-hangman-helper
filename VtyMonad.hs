@@ -1,27 +1,31 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module VtyMonad where
 
-import Data.Char
-import Graphics.Vty
 import Control.Exception (bracket)
-import Control.Monad.Reader
+import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
+import Data.Char (toUpper)
+import Graphics.Vty (Picture, Event(..), Key(..), Vty(..), mkVty)
 
 newtype VIO a = V (ReaderT Vty IO a)
   deriving (Monad, Functor)
 
+runV :: VIO a -> IO a
+runV (V f) = bracket mkVty shutdown (runReaderT f)
+
 updateV :: Picture -> VIO ()
-updateV x = V (ask >>= \vty -> lift (update vty x))
+updateV x = V $ do
+  vty <- ask
+  lift (update vty x)
 
-next_eventV :: VIO Event
-next_eventV = V (ask >>= \vty -> lift (next_event vty))
+nextEvent :: VIO Event
+nextEvent = V $ do
+  vty <- ask
+  lift (next_event vty)
 
-next_key :: VIO Key
-next_key = do
-  ev <- next_eventV
+nextKey :: VIO Key
+nextKey = do
+  ev  <- nextEvent
   case ev of
     EvKey (KASCII a) [] -> return (KASCII (toUpper a))
     EvKey k []          -> return k
-    _                   -> next_key
-
-runV :: VIO a -> IO a
-runV (V f) = bracket mkVty shutdown (runReaderT f)
+    _                   -> nextKey

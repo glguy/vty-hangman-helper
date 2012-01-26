@@ -1,6 +1,7 @@
 module Main (main) where
 
 import Control.Monad (when)
+import Data.Char     (toUpper)
 import Data.Maybe    (isJust)
 import Graphics.Vty.LLInput (Key(..))
 
@@ -14,14 +15,21 @@ main :: IO ()
 main = do
   (opts, startingMask) <- parseOptions
   ws                   <- wordListIO opts
-  let s0               = constructFirstGameState opts startingMask ws
+  mask                 <- parseMask startingMask
+  let s0                = constructFirstGameState opts mask ws
   runGame s0 enterLetterMode
 
-constructFirstGameState :: Options -> String -> [String] -> GameState
-constructFirstGameState opts startingMask ws = newGameState model
+parseMask :: String -> IO Mask
+parseMask = fmap Mask . mapM (aux . toUpper)
+  where
+  aux '.'                   = return Nothing
+  aux c | c `elem` alphabet = return (Just c)
+  aux _                     = fail "Bad initial word"
+
+constructFirstGameState :: Options -> Mask -> [String] -> GameState
+constructFirstGameState opts rawMask ws = newGameState model
   where
   model                = newGameModel filteredMask ws
-  rawMask              = parseMask startingMask
   filteredMask
     | scrubOption opts = scrubMask rawMask
     | otherwise        = rawMask
@@ -34,7 +42,7 @@ enterLetterMode = do
   m   <- getModel
   let validChoices = map fst (currentChoices m)
       genMask      = generateMaskPrefix (currentMask m)
-  updateG (\g -> draw g Nothing [])
+  updateG (draw Nothing [])
   ev <- nextKeyG
   case ev of
     KASCII c | c `elem` validChoices -> enterMaskMode c genMask
@@ -54,7 +62,7 @@ enterMaskMode c xs = do
   m <- getModel
   let prevMask   = currentMask m
       growMask k = extendMask prevMask k xs
-  updateG (\g -> draw g (Just c) xs)
+  updateG (draw (Just c) xs)
   ev <- nextKeyG
   case ev of
     KASCII k | k == c -> enterMaskMode c (growMask (Just k))
@@ -72,12 +80,11 @@ enterMaskMode c xs = do
 confirmMask :: Char -> [Maybe Char] -> Game ()
 confirmMask c mask = do
   m <- getModel
-  case applyGuess c (Mask mask) m of
-    Left err -> fail ("Logic bug in mask generation: " ++ err)
-    Right g  -> do pushHistory c mask
-                   when (currentMask m == Mask mask) incMissCount
-                   setModel g
-                   enterLetterMode 
+  let g = applyGuess c (Mask mask) m
+  pushHistory c mask
+  when (currentMask m == Mask mask) incMissCount
+  setModel g
+  enterLetterMode 
 
 -- * Mask editing functions
 

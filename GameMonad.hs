@@ -31,22 +31,22 @@ updateG p = G $ do
   lift (updateV (p g))
 
 nextKeyG :: Game Key
-nextKeyG = G (lift next_key)
+nextKeyG = G (lift nextKey)
 
 getModel :: Game GameModel
 getModel = G (gets currentModel)
 
 setModel :: GameModel -> Game ()
-setModel m = G (modify $ \g -> g { currentModel = m})
+setModel m = G (modify (\g -> g { currentModel = m}))
 
 incMissCount :: Game ()
-incMissCount = G (modify $ \g -> g { currentMissCount = currentMissCount g + 1 })
+incMissCount = G (modify (\g -> g { currentMissCount = currentMissCount g + 1 }))
 
 runGame :: GameState -> Game a -> IO a
 runGame g (G m) = runV (fmap fst (runStateT m g))
 
 pushHistory :: Char -> [Maybe Char] -> Game ()
-pushHistory c xs = G (modify $ \g -> g { currentHistory = Just (g, c, xs)})
+pushHistory c xs = G (modify (\g -> g { currentHistory = Just (g, c, xs)}))
 
 popHistory :: Game (Maybe (Char, [Maybe Char]))
 popHistory = G $ do
