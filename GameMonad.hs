@@ -26,10 +26,11 @@ newGameState g = GameState
 newtype Game a = G (StateT GameState VIO a)
   deriving (Monad, Functor)
 
-updateG :: (GameState -> Picture) -> Game ()
+updateG :: (DisplayRegion -> GameState -> Picture) -> Game ()
 updateG p = G $ do
+  h <- lift displayRegion
   g <- get
-  lift (updateV (p g))
+  lift (updateV (p h g))
 
 nextKeyG :: Game Key
 nextKeyG = G (lift nextKey)

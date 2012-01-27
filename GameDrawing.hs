@@ -1,8 +1,8 @@
 module GameDrawing (draw) where
 
-import Graphics.Vty.Picture
-import Data.List     (intercalate, intersperse)
-import Data.Maybe    (fromMaybe, isJust, isNothing)
+import Graphics.Vty
+import Data.List     (intersperse)
+import Data.Maybe    (fromMaybe, isNothing)
 
 import GameMonad (GameState(..))
 import GameModel
@@ -10,8 +10,8 @@ import Mask
 
 -- * Render functions
 
-draw :: Maybe Char -> Maybe Mask -> GameState -> Picture
-draw c xs s =
+draw :: Maybe Char -> Maybe Mask -> DisplayRegion -> GameState -> Picture
+draw c xs region s =
   Picture { pic_cursor     = cursor
           , pic_background = Background ' ' current_attr
           , pic_image      = image
@@ -33,17 +33,37 @@ draw c xs s =
      <-> char def_attr ' '
 
   n = case xs of
-        Nothing -> 0
+        Nothing       -> 0
         Just (Mask k) -> length k
+
   cursor | isNothing c = Cursor 10 (image_height topbox)
          | otherwise   = Cursor (fromIntegral n + 10)
                                 (image_height topbox + 1)
 
   g = currentModel s
-  wordlines = map (intercalate "  ") (chunks 9 (currentWords g))
-  wordboxes
-    | longerThan 10 wordlines = empty_image
-    | otherwise = vert_cat (char def_attr ' ' : map (string def_attr) wordlines)
+
+  maskLen = let Mask k = currentMask g in length k
+
+  wordlines = map (horiz_cat . intersperse (string def_attr "  "))
+            $ chunks numWordWidth
+            $ map (highlightPossibility (currentMask g))
+            $ currentWords g
+
+  numWordLines = fromIntegral (region_height region)
+               - 3
+               - fromIntegral (image_height topbox)
+
+  numWordWidth = (fromIntegral (region_width region) + 2)
+           `div` (maskLen + 2)
+
+  wordboxes = vert_cat $ char def_attr ' ' : take numWordLines wordlines
+
+highlightPossibility :: Mask -> String -> Image
+highlightPossibility (Mask template) str =
+  horiz_cat $ zipWith aux template str
+  where
+  aux Nothing c = char (with_style def_attr bold) c
+  aux _       c = char def_attr                   c
 
 usedLettersText :: GameModel -> Image
 usedLettersText g = horiz_cat $ map pick alphabet
@@ -118,6 +138,3 @@ chunks _ [] = []
 chunks i xs = a : chunks i b
   where
   (a,b) = splitAt i xs
-
-longerThan :: Int -> [a] -> Bool
-longerThan i = not . null . drop i

@@ -4,7 +4,9 @@ module VtyMonad where
 import Control.Exception (bracket)
 import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
 import Data.Char (toUpper)
-import Graphics.Vty (Picture, Event(..), Key(..), Vty(..), mkVty)
+import Graphics.Vty
+  (Picture, DisplayRegion(..), Event(..), Key(..), Vty(..),
+   display_bounds, mkVty)
 
 newtype VIO a = V (ReaderT Vty IO a)
   deriving (Monad, Functor)
@@ -16,6 +18,11 @@ updateV :: Picture -> VIO ()
 updateV x = V $ do
   vty <- ask
   lift (update vty x)
+
+displayRegion :: VIO DisplayRegion
+displayRegion = V $ do
+  vty <- ask
+  lift (display_bounds (terminal vty))
 
 nextEvent :: VIO Event
 nextEvent = V $ do
