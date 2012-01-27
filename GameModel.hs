@@ -15,9 +15,6 @@ data GameModel = GameModel
   }
   deriving (Show)
 
-alphabet :: String
-alphabet = ['A'..'Z']
-
 count :: (a -> Bool) -> [a] -> Int
 count p = length . filter p
 

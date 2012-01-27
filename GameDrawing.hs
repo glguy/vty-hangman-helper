@@ -10,7 +10,7 @@ import Mask
 
 -- * Render functions
 
-draw :: Maybe Char -> [Maybe Char] -> GameState -> Picture
+draw :: Maybe Char -> Maybe Mask -> GameState -> Picture
 draw c xs s =
   Picture { pic_cursor     = cursor
           , pic_background = Background ' ' current_attr
@@ -19,7 +19,7 @@ draw c xs s =
   where
   image = topbox
       <-> drawChoice c
-      <-> drawMaskInput (isJust c) (currentMask g) xs
+      <-> drawMaskInput (currentMask g) xs
       <-> wordboxes
 
   topbox =
@@ -31,11 +31,12 @@ draw c xs s =
      <-> string def_attr "        Letters: "
      <|> usedLettersText g
      <-> char def_attr ' '
-     <-> string def_attr "Old Mask: "
-     <|> string def_attr (show (currentMask g))
 
+  n = case xs of
+        Nothing -> 0
+        Just (Mask k) -> length k
   cursor | isNothing c = Cursor 10 (image_height topbox)
-         | otherwise   = Cursor (fromIntegral (length xs) + 10)
+         | otherwise   = Cursor (fromIntegral n + 10)
                                 (image_height topbox + 1)
 
   g = currentModel s
@@ -52,10 +53,10 @@ usedLettersText g = horiz_cat $ map pick alphabet
     | x `maskElem` currentMask g = char (with_fore_color (with_style def_attr bold) green) x
     | otherwise                  = char (with_fore_color (with_style def_attr bold) red) x
 
-drawMaskInput :: Bool -> Mask -> [Maybe Char] -> Image
-drawMaskInput False _               _ = string def_attr "New Mask:"
-drawMaskInput True  (Mask previous) str
-    = string def_attr "New Mask: "
+drawMaskInput :: Mask -> Maybe Mask -> Image
+drawMaskInput previous Nothing = string def_attr ("    Mask: " ++ maskString previous)
+drawMaskInput (Mask previous) (Just (Mask str))
+    = string def_attr "    Mask: "
   <|> horiz_cat
         (zipWith drawMaskInputChar previous (map Just str ++ repeat Nothing))
 
@@ -96,6 +97,9 @@ boxImage img = c '┌' <|> hbar <|> c '┐'
   c = char def_attr
   hbar = char_fill def_attr '─' w 1
   vbar = char_fill def_attr '│' 1 h
+
+maskString :: Mask -> String
+maskString (Mask xs) = map (fromMaybe '.') xs
 
 -- ** Utilities
 

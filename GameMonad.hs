@@ -7,12 +7,13 @@ import Data.Traversable
 import Graphics.Vty
 
 import GameModel
+import Mask
 import VtyMonad
 
 data GameState = GameState
   { currentModel     :: GameModel
   , currentMissCount :: Int
-  , currentHistory   :: Maybe (GameState, Char, [Maybe Char])
+  , currentHistory   :: Maybe (GameState, Char, Mask)
   }
 
 newGameState :: GameModel -> GameState
@@ -45,10 +46,10 @@ incMissCount = G (modify (\g -> g { currentMissCount = currentMissCount g + 1 })
 runGame :: GameState -> Game a -> IO a
 runGame g (G m) = runV (fmap fst (runStateT m g))
 
-pushHistory :: Char -> [Maybe Char] -> Game ()
+pushHistory :: Char -> Mask -> Game ()
 pushHistory c xs = G (modify (\g -> g { currentHistory = Just (g, c, xs)}))
 
-popHistory :: Game (Maybe (Char, [Maybe Char]))
+popHistory :: Game (Maybe (Char, Mask))
 popHistory = G $ do
   h <- gets currentHistory
   for h $ \(g, c, xs) -> do
