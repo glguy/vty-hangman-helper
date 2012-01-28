@@ -2,7 +2,7 @@ module Main (main) where
 
 import Control.Monad (when)
 import Data.Char (toUpper)
-import Graphics.Vty.LLInput (Key(..), Event(..))
+import Graphics.Vty
 
 import GameModel
 import GameDrawing (draw)
@@ -62,6 +62,7 @@ enterMaskMode c xs = do
     KEsc              -> return ()
     _                 -> enterMaskMode c xs
 
+finishMask :: Mask -> Char -> Mask -> Game ()
 finishMask prev c m =
   case extendMask prev Nothing m of
     Nothing -> confirmMask c m
@@ -75,6 +76,7 @@ confirmMask c mask = do
   setModel g
   enterLetterMode 
 
+nextKey :: (DisplayRegion -> GameState -> Picture) -> Game Key
 nextKey pic = do
   updateG pic
   ev <- nextEventG
