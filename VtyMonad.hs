@@ -2,7 +2,7 @@
 module VtyMonad where
 
 import Control.Exception (bracket)
-import Control.Monad.Reader (ReaderT, ask, lift, runReaderT)
+import MonadLib (ReaderT, ask, lift, runReaderT)
 import Data.Char (toUpper)
 import Graphics.Vty
   (Picture, DisplayRegion(..), Event(..), Key(..), Vty(..),
@@ -12,7 +12,7 @@ newtype VIO a = V (ReaderT Vty IO a)
   deriving (Monad, Functor)
 
 runV :: VIO a -> IO a
-runV (V f) = bracket mkVty shutdown (runReaderT f)
+runV (V f) = bracket mkVty shutdown (\vty -> runReaderT vty f)
 
 updateV :: Picture -> VIO ()
 updateV x = V $ do

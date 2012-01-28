@@ -33,50 +33,44 @@ wordListIO o = fmap lines (readFile (wordlistFile o))
 
 enterLetterMode :: Game ()
 enterLetterMode = do
+  h <- markHistory
   m               <- getModel
   ev              <- nextKey (draw Nothing Nothing)
   let validChoices = map fst (currentChoices m)
       genMask      = generateMaskPrefix (currentMask m)
   case ev of
-    KASCII c | c `elem` validChoices -> pushHistory Nothing >> enterMaskMode c genMask
+    KASCII c | c `elem` validChoices -> setHistory h >> enterMaskMode c genMask
     KEsc                             -> return ()
-    KBS                              -> attemptRollback
+    KBS                              -> popHistory
     _                                -> enterLetterMode
-
-attemptRollback :: Game ()
-attemptRollback = do
-  mbh <- popHistory
-  case mbh of
-    Just (c, xs) -> enterMaskMode c xs
-    Nothing      -> enterLetterMode
 
 enterMaskMode :: Char -> Mask -> Game ()
 enterMaskMode c xs = do
+  h <- markHistory
   m <- getModel
   ev <- nextKey (draw (Just c) (Just xs))
   let prevMask   = currentMask m
   let growMask k = case extendMask prevMask k xs of
                      Nothing  -> enterMaskMode c xs
-                     Just xs' -> pushHistory (Just (c,xs)) >> enterMaskMode c xs'
+                     Just xs' -> setHistory h >> enterMaskMode c xs'
   case ev of
     KASCII k | k == c -> growMask (Just k)
     KASCII ' '        -> growMask Nothing
     KASCII '.'        -> growMask Nothing
-    KEnter            -> finishMask prevMask c xs
-    KBS               -> attemptRollback
+    KEnter            -> setHistory h >> finishMask prevMask c xs
+    KBS               -> popHistory
     KEsc              -> return ()
     _                 -> enterMaskMode c xs
 
 finishMask prev c m =
   case extendMask prev Nothing m of
     Nothing -> confirmMask c m
-    Just m' -> pushHistory (Just (c,m)) >> finishMask prev c m'
+    Just m' -> finishMask prev c m'
 
 confirmMask :: Char -> Mask -> Game ()
 confirmMask c mask = do
   m <- getModel
   let g = applyGuess c mask m
-  pushHistory (Just (c,mask))
   when (currentMask m == mask) incMissCount
   setModel g
   enterLetterMode 

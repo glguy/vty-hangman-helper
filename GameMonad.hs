@@ -2,7 +2,7 @@
 
 module GameMonad where
 
-import Control.Monad.State
+import MonadLib
 import Data.Traversable
 import Graphics.Vty
 
@@ -13,27 +13,29 @@ import VtyMonad
 data GameState = GameState
   { currentModel     :: GameModel
   , currentMissCount :: Int
-  , currentHistory   :: Maybe (GameState, Maybe (Char, Mask))
+  , currentHistory   :: Undo
   }
 
 newGameState :: GameModel -> GameState
 newGameState g = GameState
   { currentModel     = g
   , currentMissCount = 0
-  , currentHistory   = Nothing
+  , currentHistory   = error "no history"
   }
 
-newtype Game a = G (StateT GameState VIO a)
+newtype Game a = G { unG :: StateT GameState (ContT () VIO) a }
   deriving (Monad, Functor)
+
+liftV = lift . lift
 
 updateG :: (DisplayRegion -> GameState -> Picture) -> Game ()
 updateG p = G $ do
-  h <- lift displayRegion
+  h <- liftV displayRegion
   g <- get
-  lift (updateV (p h g))
+  liftV (updateV (p h g))
 
 nextEventG :: Game Event
-nextEventG = G (lift nextEvent)
+nextEventG = G (liftV nextEvent)
 
 getModel :: Game GameModel
 getModel = G (gets currentModel)
@@ -44,17 +46,24 @@ setModel m = G (modify (\g -> g { currentModel = m}))
 incMissCount :: Game ()
 incMissCount = G (modify (\g -> g { currentMissCount = currentMissCount g + 1 }))
 
-runGame :: GameState -> Game a -> IO a
-runGame g (G m) = runV (fmap fst (runStateT m g))
+runGame :: GameState -> Game () -> IO ()
+runGame g m = runV $ runContT return $ fmap fst $ runStateT g $ unG $ do
+  setHistory =<< markHistory
+  m
 
-pushHistory :: Maybe (Char, Mask) -> Game ()
-pushHistory h = G (modify (\g -> g { currentHistory = Just (g, h)}))
+newtype Undo = U (Label (StateT GameState (ContT () VIO))  ())
 
-popHistory :: Game (Maybe (Char, Mask))
-popHistory = G $ do
-  h <- gets currentHistory
-  case h of
-    Nothing      -> return Nothing
-    Just (g, mb) -> do
-      put g
-      return mb
+modify f = set . f =<< get
+gets f = fmap f get
+
+markHistory :: Game Undo
+markHistory = do
+  ((), m) <- G (labelCC ())
+  return (U m)
+
+setHistory :: Undo -> Game ()
+setHistory u = G (modify (\g -> g { currentHistory = u }))
+
+popHistory :: Game ()
+popHistory = do U h <- G (gets currentHistory)
+                G (jump () h)
