@@ -1,7 +1,8 @@
 module Main (main) where
 
 import Control.Monad (when)
-import Graphics.Vty.LLInput (Key(..))
+import Data.Char (toUpper)
+import Graphics.Vty.LLInput (Key(..), Event(..))
 
 import GameModel
 import GameDrawing (draw)
@@ -32,13 +33,12 @@ wordListIO o = fmap lines (readFile (wordlistFile o))
 
 enterLetterMode :: Game ()
 enterLetterMode = do
-  m   <- getModel
+  m               <- getModel
+  ev              <- nextKey (draw Nothing Nothing)
   let validChoices = map fst (currentChoices m)
       genMask      = generateMaskPrefix (currentMask m)
-  updateG (draw Nothing Nothing)
-  ev <- nextKeyG
   case ev of
-    KASCII c | c `elem` validChoices -> enterMaskMode c genMask
+    KASCII c | c `elem` validChoices -> pushHistory Nothing >> enterMaskMode c genMask
     KEsc                             -> return ()
     KBS                              -> attemptRollback
     _                                -> enterLetterMode
@@ -53,26 +53,38 @@ attemptRollback = do
 enterMaskMode :: Char -> Mask -> Game ()
 enterMaskMode c xs = do
   m <- getModel
+  ev <- nextKey (draw (Just c) (Just xs))
   let prevMask   = currentMask m
-      growMask k = extendMask prevMask k xs
-  updateG (draw (Just c) (Just xs))
-  ev <- nextKeyG
+  let growMask k = case extendMask prevMask k xs of
+                     Nothing  -> enterMaskMode c xs
+                     Just xs' -> pushHistory (Just (c,xs)) >> enterMaskMode c xs'
   case ev of
-    KASCII k | k == c -> enterMaskMode c (growMask (Just k))
-    KASCII ' '        -> enterMaskMode c (growMask Nothing)
-    KASCII '.'        -> enterMaskMode c (growMask Nothing)
-    KBS               -> case retractMask prevMask xs of
-                           Nothing -> enterLetterMode
-                           Just ys -> enterMaskMode c ys
-    KEnter            -> confirmMask c (completeMask prevMask xs)
+    KASCII k | k == c -> growMask (Just k)
+    KASCII ' '        -> growMask Nothing
+    KASCII '.'        -> growMask Nothing
+    KEnter            -> finishMask prevMask c xs
+    KBS               -> attemptRollback
     KEsc              -> return ()
     _                 -> enterMaskMode c xs
+
+finishMask prev c m =
+  case extendMask prev Nothing m of
+    Nothing -> confirmMask c m
+    Just m' -> pushHistory (Just (c,m)) >> finishMask prev c m'
 
 confirmMask :: Char -> Mask -> Game ()
 confirmMask c mask = do
   m <- getModel
   let g = applyGuess c mask m
-  pushHistory c mask
+  pushHistory (Just (c,mask))
   when (currentMask m == mask) incMissCount
   setModel g
   enterLetterMode 
+
+nextKey pic = do
+  updateG pic
+  ev <- nextEventG
+  case ev of
+    EvKey (KASCII k) [] -> return (KASCII (toUpper k))
+    EvKey k []          -> return k
+    _                   -> nextKey pic

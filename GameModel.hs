@@ -22,8 +22,8 @@ rankLetter :: Char -> [String] -> Int
 rankLetter x = count (elem x)
 
 rankLetters :: [Char] -> [String] -> [(Char, Int)]
-rankLetters xs ws =
-  sortBy (flip (comparing snd)) [(x, i) | x <- xs, let i = rankLetter x ws, i > 0]
+rankLetters xs ws = sortBy (flip (comparing snd))
+                     [(x, i) | x <- xs, let i = rankLetter x ws, i > 0]
 
 currentChoices :: GameModel -> [(Char, Int)]
 currentChoices g = rankLetters (alphabet \\ lettersTried g) (currentWords g)

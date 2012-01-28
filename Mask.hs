@@ -51,31 +51,12 @@ isVowel x = x `elem` vowels
 
 -- * Mask editing functions
 
-completeMask :: Mask -> Mask -> Mask
-completeMask (Mask template) (Mask input) = Mask (aux template input)
+extendMask :: Mask -> Maybe Char -> Mask -> Maybe Mask
+extendMask (Mask template) c (Mask input) = fmap Mask (aux template input)
   where
-  aux (_ : xs) (y : ys) = y : aux xs ys
-  aux xs       _        = xs
-
-extendMask :: Mask -> Maybe Char -> Mask -> Mask
-extendMask (Mask template) c (Mask input) = Mask (aux template input)
-  where
-  aux (_ : xs) (y : ys) = y : aux xs ys
-  aux []       _        = []
-  aux (_ : xs) _        = c : takeWhile isJust xs
+  aux (_ : xs) (y : ys) = fmap (y :) (aux xs ys)
+  aux []       _        = Nothing
+  aux (_ : xs) _        = Just (c : takeWhile isJust xs)
 
 generateMaskPrefix :: Mask -> Mask
 generateMaskPrefix (Mask template) = Mask (takeWhile isJust template)
-
-retractMask :: Mask -> Mask -> Maybe Mask
-retractMask (Mask template) (Mask input)
-  | all isJust (zipWith const template input) = Nothing
-  | otherwise                                 = Just step1
-  where
-  step1 = Mask
-        $ map snd
-        $ reverse
-        $ drop 1
-        $ dropWhile (isJust . fst)
-        $ reverse
-        $ zip template input

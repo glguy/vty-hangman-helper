@@ -15,3 +15,4 @@ Executable vty-hangman-helper
   Main-is:             VtyDriver.hs
   Build-depends:       base == 4.*, vty, mtl
   Other-modules:       GameDrawing, GameModel, GameMonad, Mask, Options, VtyMonad
+  Ghc-options:         -Wall

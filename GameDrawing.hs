@@ -23,7 +23,7 @@ draw c xs region s =
       <-> wordboxes
 
   topbox =
-         drawLetterBox g
+         drawLetterBox g region
      <-> string def_attr "Words remaining: "
      <|> string (with_fore_color def_attr red) (show (length (currentWords g)))
      <-> string def_attr "        Strikes: "
@@ -62,8 +62,8 @@ highlightPossibility :: Mask -> String -> Image
 highlightPossibility (Mask template) str =
   horiz_cat $ zipWith aux template str
   where
-  aux Nothing c = char (with_style def_attr bold) c
-  aux _       c = char def_attr                   c
+  aux Nothing c = char def_attr c
+  aux _       c = char (with_fore_color def_attr (Color240 204)) c
 
 usedLettersText :: GameModel -> Image
 usedLettersText g = horiz_cat $ map pick alphabet
@@ -90,16 +90,17 @@ drawChoice Nothing  = string def_attr "  Choice:"
 drawChoice (Just c) = string def_attr "  Choice: "
                   <|> char (with_fore_color def_attr red) c
 
-drawLetterBox :: GameModel -> Image
-drawLetterBox g
+drawLetterBox :: GameModel -> DisplayRegion -> Image
+drawLetterBox g region
   | null xs   = boxImage (string def_attr "No letters available")
   | otherwise = boxImage (generate xs)
   where
+  numDivisions = fromIntegral (region_width region) `div` 8
   xs = currentChoices g
   generate = horiz_cat
            . intersperse (string def_attr "  ")
            . map vert_cat
-           . divisions 8
+           . divisions numDivisions
            . map drawLetter
 
 drawLetter :: (Char,Int) -> Image

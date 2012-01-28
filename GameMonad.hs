@@ -13,7 +13,7 @@ import VtyMonad
 data GameState = GameState
   { currentModel     :: GameModel
   , currentMissCount :: Int
-  , currentHistory   :: Maybe (GameState, Char, Mask)
+  , currentHistory   :: Maybe (GameState, Maybe (Char, Mask))
   }
 
 newGameState :: GameModel -> GameState
@@ -32,8 +32,8 @@ updateG p = G $ do
   g <- get
   lift (updateV (p h g))
 
-nextKeyG :: Game Key
-nextKeyG = G (lift nextKey)
+nextEventG :: Game Event
+nextEventG = G (lift nextEvent)
 
 getModel :: Game GameModel
 getModel = G (gets currentModel)
@@ -47,12 +47,14 @@ incMissCount = G (modify (\g -> g { currentMissCount = currentMissCount g + 1 })
 runGame :: GameState -> Game a -> IO a
 runGame g (G m) = runV (fmap fst (runStateT m g))
 
-pushHistory :: Char -> Mask -> Game ()
-pushHistory c xs = G (modify (\g -> g { currentHistory = Just (g, c, xs)}))
+pushHistory :: Maybe (Char, Mask) -> Game ()
+pushHistory h = G (modify (\g -> g { currentHistory = Just (g, h)}))
 
 popHistory :: Game (Maybe (Char, Mask))
 popHistory = G $ do
   h <- gets currentHistory
-  for h $ \(g, c, xs) -> do
-    put g
-    return (c, xs)
+  case h of
+    Nothing      -> return Nothing
+    Just (g, mb) -> do
+      put g
+      return mb

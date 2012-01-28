@@ -35,4 +35,4 @@ nextKey = do
   case ev of
     EvKey (KASCII a) [] -> return (KASCII (toUpper a))
     EvKey k []          -> return k
-    _                   -> nextKey
+    _                   -> return KMenu
