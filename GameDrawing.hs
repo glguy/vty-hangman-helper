@@ -10,24 +10,28 @@ import Mask
 
 -- * Render functions
 
+gray :: Color
+gray = Color240 204
+
 draw :: Maybe Char -> Maybe Mask -> DisplayRegion -> GameState -> Picture
 draw c xs region s =
   Picture { pic_cursor     = cursor
           , pic_background = Background ' ' current_attr
-          , pic_image      = image
+          , pic_image      = tophalf <-> wordboxes
           }
   where
-  image = topbox
-      <-> drawChoice c
-      <-> drawMaskInput (currentMask g) xs
-      <-> wordboxes
+  tophalf = infobox
+        <-> drawChoice c
+        <-> drawMaskInput (currentMask g) xs
 
-  topbox =
+  maxStrikes = max 0 (12 - maskLen)
+
+  infobox =
          drawLetterBox g region
      <-> string def_attr "Words remaining: "
-     <|> string (with_fore_color def_attr red) (show (length (currentWords g)))
+     <|> string (fore red) (show (length (currentWords g)))
      <-> string def_attr "        Strikes: "
-     <|> string (with_fore_color def_attr red) (show (currentMissCount s))
+     <|> drawStrikes maxStrikes (currentMissCount s)
      <-> string def_attr "        Letters: "
      <|> usedLettersText g
      <-> char def_attr ' '
@@ -36,9 +40,9 @@ draw c xs region s =
         Nothing       -> 0
         Just (Mask k) -> length k
 
-  cursor | isNothing c = Cursor 10 (image_height topbox)
+  cursor | isNothing c = Cursor 10 (image_height infobox)
          | otherwise   = Cursor (fromIntegral n + 10)
-                                (image_height topbox + 1)
+                                (image_height infobox + 1)
 
   g = currentModel s
 
@@ -50,28 +54,37 @@ draw c xs region s =
             $ currentWords g
 
   numWordLines = fromIntegral (region_height region)
-               - 3
-               - fromIntegral (image_height topbox)
+               - fromIntegral (image_height tophalf)
 
   numWordWidth = (fromIntegral (region_width region) + 2)
            `div` (maskLen + 2)
 
   wordboxes = vert_cat $ char def_attr ' ' : take numWordLines wordlines
 
+drawStrikes :: Int -> Int -> Image
+drawStrikes maxStrikes strikes =
+      string (fore red)  (replicate (min strikes maxStrikes) 'X')
+  <|> string (fore gray) (replicate (maxStrikes - strikes)   'X')
+  <|> overstrikes
+  where
+  overstrikes
+    | strikes <= maxStrikes = empty_image
+    | otherwise = string (fore red) (" +" ++ show (strikes - maxStrikes))
+
 highlightPossibility :: Mask -> String -> Image
 highlightPossibility (Mask template) str =
   horiz_cat $ zipWith aux template str
   where
-  aux Nothing c = char def_attr c
-  aux _       c = char (with_fore_color def_attr (Color240 204)) c
+  aux Nothing c = char def_attr    c
+  aux _       c = char (fore gray) c
 
 usedLettersText :: GameModel -> Image
 usedLettersText g = horiz_cat $ map pick alphabet
   where
   pick x
-    | x `notElem` lettersTried g = char (with_fore_color def_attr yellow) x
-    | x `maskElem` currentMask g = char (with_fore_color (with_style def_attr bold) green) x
-    | otherwise                  = char (with_fore_color (with_style def_attr bold) red) x
+    | x `notElem` lettersTried g = char (fore yellow) x
+    | x `maskElem` currentMask g = char (with_style (fore green) bold) x
+    | otherwise                  = char (with_style (fore red)   bold) x
 
 drawMaskInput :: Mask -> Maybe Mask -> Image
 drawMaskInput previous Nothing = string def_attr ("    Mask: " ++ maskString previous)
@@ -83,12 +96,12 @@ drawMaskInput (Mask previous) (Just (Mask str))
 drawMaskInputChar :: Maybe Char -> Maybe (Maybe Char) -> Image
 drawMaskInputChar x Nothing  = char def_attr (fromMaybe '.' x)
 drawMaskInputChar x (Just (Just y)) | x == Just y = char def_attr y
-drawMaskInputChar _ (Just y) = char (with_fore_color def_attr red) (fromMaybe '.' y)
+drawMaskInputChar _ (Just y) = char (fore red) (fromMaybe '.' y)
 
 drawChoice :: Maybe Char -> Image
 drawChoice Nothing  = string def_attr "  Choice:"
 drawChoice (Just c) = string def_attr "  Choice: "
-                  <|> char (with_fore_color def_attr red) c
+                  <|> char (fore red) c
 
 drawLetterBox :: GameModel -> DisplayRegion -> Image
 drawLetterBox g region
@@ -105,7 +118,7 @@ drawLetterBox g region
 
 drawLetter :: (Char,Int) -> Image
 drawLetter (c,i) = string def_attr (c : ": ")
-               <|> string (with_fore_color def_attr red) (padded 3 (show i))
+               <|> string (fore red) (padded 3 (show i))
 
 boxImage :: Image -> Image
 boxImage img = c '┌' <|> hbar <|> c '┐'
@@ -123,6 +136,9 @@ maskString :: Mask -> String
 maskString (Mask xs) = map (fromMaybe '.') xs
 
 -- ** Utilities
+
+fore :: Color -> Attr
+fore = with_fore_color def_attr
 
 padded :: Int -> String -> String
 padded i xs = replicate (i - length xs) ' ' ++ xs

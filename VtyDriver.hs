@@ -33,31 +33,31 @@ wordListIO o = fmap lines (readFile (wordlistFile o))
 
 enterLetterMode :: Game ()
 enterLetterMode = do
-  h <- markHistory
+  save            <- checkpoint
   m               <- getModel
   ev              <- nextKey (draw Nothing Nothing)
   let validChoices = map fst (currentChoices m)
       genMask      = generateMaskPrefix (currentMask m)
   case ev of
-    KASCII c | c `elem` validChoices -> setHistory h >> enterMaskMode c genMask
+    KASCII c | c `elem` validChoices -> save >> enterMaskMode c genMask
     KEsc                             -> return ()
     KBS                              -> popHistory
     _                                -> enterLetterMode
 
 enterMaskMode :: Char -> Mask -> Game ()
 enterMaskMode c xs = do
-  h <- markHistory
-  m <- getModel
-  ev <- nextKey (draw (Just c) (Just xs))
+  save          <- checkpoint
+  m             <- getModel
+  ev            <- nextKey (draw (Just c) (Just xs))
   let prevMask   = currentMask m
   let growMask k = case extendMask prevMask k xs of
                      Nothing  -> enterMaskMode c xs
-                     Just xs' -> setHistory h >> enterMaskMode c xs'
+                     Just xs' -> save >> enterMaskMode c xs'
   case ev of
     KASCII k | k == c -> growMask (Just k)
     KASCII ' '        -> growMask Nothing
     KASCII '.'        -> growMask Nothing
-    KEnter            -> setHistory h >> finishMask prevMask c xs
+    KEnter            -> save >> finishMask prevMask c xs
     KBS               -> popHistory
     KEsc              -> return ()
     _                 -> enterMaskMode c xs
@@ -70,7 +70,7 @@ finishMask prev c m =
 
 confirmMask :: Char -> Mask -> Game ()
 confirmMask c mask = do
-  m <- getModel
+  m    <- getModel
   let g = applyGuess c mask m
   when (currentMask m == mask) incMissCount
   setModel g

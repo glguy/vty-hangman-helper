@@ -47,19 +47,16 @@ incMissCount = G (modify (\g -> g { currentMissCount = currentMissCount g + 1 })
 
 runGame :: GameState -> Game () -> IO ()
 runGame g m = runV $ runContT return $ fmap fst $ runStateT g $ unG $ do
-  mark <- markHistory
-  setHistory mark
+  save <- checkpoint
+  save
   m
 
 newtype Undo = U (Label (StateT GameState (ContT () VIO)) ())
 
-markHistory :: Game Undo
-markHistory = do
+checkpoint :: Game (Game ())
+checkpoint = do
   ((), m) <- G (labelCC ())
-  return (U m)
-
-setHistory :: Undo -> Game ()
-setHistory u = G (modify (\g -> g { currentHistory = u }))
+  return (G (modify (\g -> g { currentHistory = U m })))
 
 popHistory :: Game a
 popHistory = G $ do
